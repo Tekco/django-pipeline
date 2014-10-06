@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 
+import os
 import gzip
+import datetime
 
 from io import BytesIO
 
@@ -54,9 +56,10 @@ class PipelineMixin(object):
 class GZIPMixin(object):
     gzip_patterns = ("*.css", "*.js")
 
-    def _compress(self, original_file):
+    def _compress(self, original_file, original_mtime=None):
         content = BytesIO()
-        gzip_file = gzip.GzipFile(mode='wb', fileobj=content)
+        gzip_file = gzip.GzipFile(mode='wb', fileobj=content,
+                                  mtime=(original_mtime - datetime.datetime(1970,1,1)).total_seconds())
         gzip_file.write(original_file.read())
         gzip_file.close()
         content.seek(0)
@@ -78,10 +81,11 @@ class GZIPMixin(object):
                 if not matches_patterns(path, self.gzip_patterns):
                     continue
                 original_file = self.open(path)
+                original_mtime = self.modified_time(path)
                 gzipped_path = "{0}.gz".format(path)
                 if self.exists(gzipped_path):
                     self.delete(gzipped_path)
-                gzipped_file = self._compress(original_file)
+                gzipped_file = self._compress(original_file, original_mtime)
                 gzipped_path = self.save(gzipped_path, gzipped_file)
                 yield gzipped_path, gzipped_path, True
 
